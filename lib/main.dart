@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'patient_list.dart';
 
 void main() {
-  runApp(const NutrinovaApp());
+  runApp(const DiaNutraApp());
 }
 
-class NutrinovaApp extends StatelessWidget {
-  const NutrinovaApp({super.key});
+class DiaNutraApp extends StatelessWidget {
+  const DiaNutraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Nutrinova',
+      title: 'DiaNutra',
 
       theme: ThemeData(
         fontFamily: 'Arial',
