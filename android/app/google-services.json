@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "157320679196",
+    "project_id": "dianutra-36fe1",
+    "storage_bucket": "dianutra-36fe1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:157320679196:android:0713beb92f029fccb934d9",
+        "android_client_info": {
+          "package_name": "com.example.nutrinova"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTHqHE9YUqEq0DGu12r4Nv9R-YhZa4k5M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
