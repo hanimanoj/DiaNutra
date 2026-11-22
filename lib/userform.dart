@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'footer.dart';
 import 'calculation.dart';
 import 'tdee_result_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firestore_service.dart';
 
 const Color diaGreen = Color(0xFF176744);
 const Color diaMint = Color(0xFFF3FFF0);
@@ -227,24 +229,50 @@ class _UserFormPageState extends State<UserFormPage> {
   Future<void> calculateTdee() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final result = TdeeCalculator.calculate(
-      age: int.parse(ageController.text),
-      gender: gender!,
-      heightCm: double.parse(heightController.text),
-      weightKg: double.parse(weightController.text),
-      activityLevel: activityLevel!,
-    );
+    try {
+      // Save TDEE form data to Firestore
+      await FirestoreService().saveTdeeProfile(
+        age: int.parse(ageController.text),
+        gender: gender!,
+        heightCm: double.parse(heightController.text),
+        weightKg: double.parse(weightController.text),
+        diabetesType: diabetesType!,
+        activityLevel: activityLevel!,
+        healthInformation: healthController.text.trim(),
+      );
 
-    final response = await Navigator.push<dynamic>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => TdeeResultPage(result: result),
-      ),
-    );
+      if (!mounted) return;
 
-    if (!mounted || response == null) return;
+      // Calculate TDEE
+      final result = TdeeCalculator.calculate(
+        age: int.parse(ageController.text),
+        gender: gender!,
+        heightCm: double.parse(heightController.text),
+        weightKg: double.parse(weightController.text),
+        activityLevel: activityLevel!,
+      );
 
-    Navigator.pop(context, response);
+      // Navigate to TDEE Result Page
+      final response = await Navigator.push<dynamic>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TdeeResultPage(result: result),
+        ),
+      );
+
+      if (!mounted || response == null) return;
+
+      Navigator.pop(context, response);
+
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to save your information: $e'),
+        ),
+      );
+    }
   }
 
   void handleTabTap(int index) {

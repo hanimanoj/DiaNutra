@@ -189,7 +189,6 @@ class _AuthGateState extends State<AuthGate> {
   }
 }
 
-
 // REUSABLE LOGO
 class BrandLogo extends StatelessWidget {
   final double size;
@@ -554,6 +553,9 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } on FirebaseAuthMultiFactorException catch (e) {
+      debugPrint('GOOGLE MFA: Exception detected');
+      debugPrint('GOOGLE MFA: Current user = ${FirebaseAuth.instance.currentUser?.uid}');
+
       if (!mounted) return;
 
       await Navigator.push(
@@ -562,6 +564,20 @@ class _LoginPageState extends State<LoginPage> {
           builder: (_) => MfaSignInPage(resolver: e.resolver),
         ),
       );
+
+      if (!mounted) return;
+
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        debugPrint('GOOGLE MFA: Login successful. Rebuilding AuthGate.');
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const AuthGate(),
+          ),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         message(context, e.message ?? 'Google sign-in failed.');
@@ -574,7 +590,6 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) setState(() => loading = false);
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -1046,6 +1061,7 @@ class _MfaSignInPageState extends State<MfaSignInPage> {
   }
 
   Future<void> sendOtp() async {
+    debugPrint('MFA DEBUG: sendOtp() called');
     final hint = phoneHint;
     if (hint == null) return;
 
@@ -1089,6 +1105,7 @@ class _MfaSignInPageState extends State<MfaSignInPage> {
   }
 
   Future<void> verifyOtp() async {
+    debugPrint('MFA DEBUG: verifyOtp() called');
     final id = verificationId;
     final code = otpController.text.trim();
 
@@ -1124,7 +1141,13 @@ class _MfaSignInPageState extends State<MfaSignInPage> {
 
       if (!mounted) return;
 
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // Refresh authenticated user
+      await result.user?.reload();
+
+      if (!mounted) return;
+
+      // Close MFA page and return to AuthGate
+      Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {
       print('MFA Firebase error: ${e.code} - ${e.message}');
 

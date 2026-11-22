@@ -53,6 +53,31 @@ class FirestoreService {
     return doc.data();
   }
 
+  Future<void> saveTdeeProfile({
+    required int age,
+    required String gender,
+    required double heightCm,
+    required double weightKg,
+    required String diabetesType,
+    required String activityLevel,
+    required String healthInformation,
+  }) async {
+    final uid = currentUserId;
 
+    if (uid == null) {
+      throw Exception('User is not logged in.');
+    }
+
+    await _db.collection('users').doc(uid).set({
+      'age': age,
+      'gender': gender,
+      'height': heightCm,
+      'weight': weightKg,
+      'diabetesType': diabetesType,
+      'activityLevel': activityLevel,
+      'healthInformation': healthInformation,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 
 }
