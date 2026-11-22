@@ -4,6 +4,7 @@ import 'header.dart';
 import 'footer.dart';
 import 'calculation.dart';
 import 'userform.dart';
+import 'profile_page.dart';
 
 const Color diaGreen = Color(0xFF176744);
 const Color diaMint = Color(0xFFF3FFF0);
@@ -93,6 +94,16 @@ class _HomePageState extends State<HomePage> {
 
   void selectTab(int index) {
     setState(() => selectedTab = index);
+
+    if (index == 4) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const ProfilePage(),
+        ),
+      );
+      return;
+    }
 
     if (index != 0) {
       ScaffoldMessenger.of(context).showSnackBar(

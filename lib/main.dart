@@ -545,6 +545,14 @@ class _LoginPageState extends State<LoginPage> {
 
         await FirebaseAuth.instance.signInWithCredential(credential);
       }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirestoreService().saveUserProfile(
+          name: user.displayName ?? 'User',
+          email: user.email ?? '',
+        );
+      }
     } on FirebaseAuthMultiFactorException catch (e) {
       if (!mounted) return;
 

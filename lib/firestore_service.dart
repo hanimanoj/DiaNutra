@@ -15,16 +15,26 @@ class FirestoreService {
   }) async {
     final uid = currentUserId;
 
+    print('Firestore: Saving user profile...');
+    print('Firestore: Current UID = $uid');
+
     if (uid == null) {
       throw Exception('User is not logged in.');
     }
 
-    await _db.collection('users').doc(uid).set({
-      'name': name,
-      'email': email,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      await _db.collection('users').doc(uid).set({
+        'name': name,
+        'email': email,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      print('Firestore: User profile saved successfully!');
+    } catch (e) {
+      print('Firestore ERROR: $e');
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>?> getUserProfile() async {
@@ -43,6 +53,6 @@ class FirestoreService {
     return doc.data();
   }
 
-  
+
 
 }
