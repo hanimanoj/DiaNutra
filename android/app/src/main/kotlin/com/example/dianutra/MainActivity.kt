@@ -1,4 +1,4 @@
-package com.example.nutrinova
+package com.dianutra.app
 
 import io.flutter.embedding.android.FlutterActivity
 

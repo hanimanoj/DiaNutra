@@ -7,12 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:157320679196:android:0713beb92f029fccb934d9",
+        "mobilesdk_app_id": "1:157320679196:android:49ca422422a3a092b934d9",
         "android_client_info": {
-          "package_name": "com.example.nutrinova"
+          "package_name": "com.dianutra.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "157320679196-k9m7vtejbmi7v1qlb1ltu3p8klpeg5ba.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDTHqHE9YUqEq0DGu12r4Nv9R-YhZa4k5M"
@@ -20,7 +25,63 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "157320679196-k9m7vtejbmi7v1qlb1ltu3p8klpeg5ba.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "157320679196-2ukc8rf5utftm1m0rjdbq6eems6iq9l0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.nutrinova"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:157320679196:android:0713beb92f029fccb934d9",
+        "android_client_info": {
+          "package_name": "com.example.nutrinova"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "157320679196-r9ke76v8hef7q7o8ehrp1p1tjr2a34tj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.nutrinova",
+            "certificate_hash": "230aee87f297edee52a76132f95787ce8aa14d33"
+          }
+        },
+        {
+          "client_id": "157320679196-k9m7vtejbmi7v1qlb1ltu3p8klpeg5ba.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTHqHE9YUqEq0DGu12r4Nv9R-YhZa4k5M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "157320679196-k9m7vtejbmi7v1qlb1ltu3p8klpeg5ba.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "157320679196-2ukc8rf5utftm1m0rjdbq6eems6iq9l0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.nutrinova"
+              }
+            }
+          ]
         }
       }
     }

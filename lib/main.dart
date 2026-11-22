@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'firestore_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'firebase_options.dart';
-import 'patient_list.dart';
+import 'homepage.dart';
+import 'mfa_enrollment_page.dart';
 
 const Color mint = Color(0xFF79C2A0);
 const Color green = Color(0xFF2F7948);
@@ -19,6 +22,8 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  FirebaseFirestore.instance;
 
   if (!kIsWeb) {
     await GoogleSignIn.instance.initialize();
@@ -80,8 +85,25 @@ class _SplashPageState extends State<SplashPage> {
 
 // AUTHENTICATION ROUTING
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  User? _checkedUser;
+  Future<List<MultiFactorInfo>>? _factorsFuture;
+
+  Future<List<MultiFactorInfo>> _getFactors(User user) {
+    if (_checkedUser?.uid != user.uid || _factorsFuture == null) {
+      _checkedUser = user;
+      _factorsFuture = user.multiFactor.getEnrolledFactors();
+    }
+
+    return _factorsFuture!;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,27 +121,76 @@ class AuthGate extends StatelessWidget {
 
         final user = snapshot.data;
 
-        if (user != null) {
-          if (user.email != null &&
-              !user.emailVerified &&
-              user.providerData.any(
-                (p) => p.providerId == 'password',
-              )) {
-            return VerifyEmailPage(email: user.email!);
-          }
+        print(
+          'AuthGate: state=${snapshot.connectionState}, '
+          'user=${user?.uid}, error=${snapshot.error}',
+        );
 
-          return const AppShell(child: PatientPage());
+        if (user == null) {
+          _checkedUser = null;
+          _factorsFuture = null;
+          return const LoginPage();
         }
 
-        return const LoginPage();
+        final usesEmailPassword = user.providerData.any(
+          (provider) => provider.providerId == 'password',
+        );
+
+        if (usesEmailPassword && !user.emailVerified) {
+          return VerifyEmailPage(email: user.email ?? '');
+        }
+
+        return FutureBuilder<List<MultiFactorInfo>>(
+          future: _getFactors(user),
+          builder: (context, factorsSnapshot) {
+            if (factorsSnapshot.connectionState == ConnectionState.waiting) {
+              print('AuthGate: Checking MFA factors...');
+
+              return const Scaffold(
+                backgroundColor: Colors.white,
+                body: Center(
+                  child: CircularProgressIndicator(color: green),
+                ),
+              );
+            }
+
+            if (factorsSnapshot.hasError) {
+              return const Scaffold(
+                backgroundColor: Colors.white,
+                body: Center(
+                  child: Text(
+                    'Unable to check MFA status. Please try again.',
+                  ),
+                ),
+              );
+            }
+
+            final factors = factorsSnapshot.data ?? [];
+            print('AuthGate: MFA factors result = ${factors.length}');
+
+            if (factors.isEmpty) {
+              return MfaEnrollmentPage(
+                onEnrolled: () {
+                  setState(() {
+                    _checkedUser = null;
+                    _factorsFuture = null;
+                  });
+                },
+              );
+            }
+
+            print('AuthGate: MFA factors loaded = ${factors.length}');
+            print('AuthGate: Opening HomePage');
+            return const AppShell(child: HomePage());
+          },
+        );
       },
     );
   }
 }
 
+
 // REUSABLE LOGO
-
-
 class BrandLogo extends StatelessWidget {
   final double size;
 
@@ -455,13 +526,15 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-
   Future<void> googleLogin() async {
     setState(() => loading = true);
 
     try {
       if (kIsWeb) {
-        await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+        final provider = GoogleAuthProvider()
+          ..setCustomParameters({'prompt': 'select_account'});
+
+        await FirebaseAuth.instance.signInWithPopup(provider);
       } else {
         final account = await GoogleSignIn.instance.authenticate();
         final googleAuth = account.authentication;
@@ -472,14 +545,28 @@ class _LoginPageState extends State<LoginPage> {
 
         await FirebaseAuth.instance.signInWithCredential(credential);
       }
+    } on FirebaseAuthMultiFactorException catch (e) {
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MfaSignInPage(resolver: e.resolver),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
-      if (mounted) message(context, e.message ?? 'Google sign-in failed.');
+      if (mounted) {
+        message(context, e.message ?? 'Google sign-in failed.');
+      }
     } catch (e) {
-      if (mounted) message(context, 'Google sign-in was cancelled or failed.');
+      if (mounted) {
+        message(context, 'Google sign-in failed: $e');
+      }
     } finally {
       if (mounted) setState(() => loading = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -642,6 +729,12 @@ class _SignUpPageState extends State<SignUpPage> {
       );
 
       await result.user?.updateDisplayName(name.text.trim());
+      
+      await FirestoreService().saveUserProfile(
+        name: name.text.trim(),
+        email: email.text.trim(),
+      );
+      
       await result.user?.sendEmailVerification();
 
       await FirebaseAuth.instance.signOut();
@@ -736,16 +829,28 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
     setState(() => loading = true);
 
     try {
-      await FirebaseAuth.instance.signOut();
+      await FirebaseAuth.instance.currentUser?.reload();
 
-      if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-        (_) => false,
-      );
+      final user = FirebaseAuth.instance.currentUser;
 
-      message(context, 'Open the email verification link, then log in.');
+      if (user != null && user.emailVerified) {
+        if (!mounted) return;
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const LoginPage(),
+          ),
+          (_) => false,
+        );
+      } else {
+        if (mounted) {
+          message(
+            context,
+            'Email belum disahkan. Sila semak inbox anda.',
+          );
+        }
+      }
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -878,42 +983,7 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: paleGreen,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(32, 8, 20, 4),
-              child: SizedBox(
-                height: 55,
-                child: Row(
-                  children: [
-                    const Text(
-                      'DiaNutra - Patient Page',
-                      style: TextStyle(fontSize: 20),
-                    ),
-                    const Spacer(),
-                    Image.asset(
-                      'assets/images/dianutra_logo.png',
-                      width: 50,
-                      height: 35,
-                      fit: BoxFit.contain,
-                    ),
-                    IconButton(
-                      tooltip: 'Sign out',
-                      onPressed: () => FirebaseAuth.instance.signOut(),
-                      icon: const Icon(Icons.logout),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(child: child),
-          ],
-        ),
-      ),
-    );
+    return child;
   }
 }
 
@@ -921,4 +991,214 @@ void message(BuildContext context, String text) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text(text)),
   );
+}
+
+class MfaSignInPage extends StatefulWidget {
+  final MultiFactorResolver resolver;
+
+  const MfaSignInPage({
+    super.key,
+    required this.resolver,
+  });
+
+  @override
+  State<MfaSignInPage> createState() => _MfaSignInPageState();
+}
+
+class _MfaSignInPageState extends State<MfaSignInPage> {
+  final otpController = TextEditingController();
+
+  String? verificationId;
+  PhoneMultiFactorInfo? phoneHint;
+  bool loading = false;
+  String status = 'Preparing phone verification...';
+
+  @override
+  void initState() {
+    super.initState();
+
+    for (final hint in widget.resolver.hints) {
+      if (hint is PhoneMultiFactorInfo) {
+        phoneHint = hint;
+        break;
+      }
+    }
+
+    if (phoneHint == null) {
+      status = 'No registered phone factor was found.';
+    } else {
+      sendOtp();
+    }
+  }
+
+  @override
+  void dispose() {
+    otpController.dispose();
+    super.dispose();
+  }
+
+  Future<void> sendOtp() async {
+    final hint = phoneHint;
+    if (hint == null) return;
+
+    setState(() {
+      loading = true;
+      status = 'Sending SMS verification code...';
+    });
+
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        multiFactorSession: widget.resolver.session,
+        multiFactorInfo: hint,
+        verificationCompleted: (PhoneAuthCredential credential) {},
+        verificationFailed: (FirebaseAuthException e) {
+          if (!mounted) return;
+          setState(() => status =
+              e.message ?? 'Failed to send SMS OTP.');
+        },
+        codeSent: (String id, int? resendToken) {
+          if (!mounted) return;
+          setState(() {
+            verificationId = id;
+            status = 'OTP sent. Enter the code received by SMS.';
+          });
+        },
+        codeAutoRetrievalTimeout: (String id) {
+          verificationId = id;
+        },
+      );
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() => status = e.message ?? 'MFA verification failed.');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => status = 'Unable to send OTP: $e');
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> verifyOtp() async {
+    final id = verificationId;
+    final code = otpController.text.trim();
+
+    if (id == null || code.isEmpty) {
+      setState(() => status = 'Wait for the SMS and enter its OTP.');
+      return;
+    }
+
+    setState(() {
+      loading = true;
+      status = 'Verifying OTP...';
+    });
+
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: id,
+        smsCode: code,
+      );
+
+      final assertion =
+          PhoneMultiFactorGenerator.getAssertion(credential);
+
+      print('MFA: Resolving sign-in...');
+
+      final result =
+          await widget.resolver.resolveSignIn(assertion);
+
+      print('MFA: Sign-in resolved for ${result.user?.uid}');
+      print(
+        'MFA: Current user = '
+        '${FirebaseAuth.instance.currentUser?.uid}',
+      );
+
+      if (!mounted) return;
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } on FirebaseAuthException catch (e) {
+      print('MFA Firebase error: ${e.code} - ${e.message}');
+
+      if (mounted) {
+        setState(() => status = e.message ?? 'Invalid OTP.');
+      }
+    } catch (e, stackTrace) {
+      print('MFA unexpected error: $e');
+      print(stackTrace);
+
+      if (mounted) {
+        setState(() => status = 'Verification failed: $e');
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maskedPhone = phoneHint?.phoneNumber ?? '';
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Two-step verification')),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(Icons.security, size: 60),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Verify your identity',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    maskedPhone.isEmpty
+                        ? 'Verify using your registered phone.'
+                        : 'Enter the SMS code sent to $maskedPhone',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: otpController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'SMS verification code',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: loading ? null : verifyOtp,
+                    child: const Text('VERIFY AND SIGN IN'),
+                  ),
+                  TextButton(
+                    onPressed: loading ? null : sendOtp,
+                    child: const Text('RESEND OTP'),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(status, textAlign: TextAlign.center),
+                  if (loading)
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
