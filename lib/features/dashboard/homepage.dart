@@ -7,6 +7,7 @@ import '../../models/calculation.dart';
 import '../tdee/userform.dart';
 import '../profile/profile_page.dart';
 import '../tdee/nutrient_details_page.dart';
+import '../meal/meal_recommendation_page.dart';
 
 const Color diaGreen = Color(0xFF176744);
 const Color diaMint = Color(0xFFF3FFF0);
@@ -118,24 +119,45 @@ class _HomePageState extends State<HomePage> {
   void selectTab(int index) {
     setState(() => selectedTab = index);
 
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MealRecommendationPage(
+            result: latestResult,
+          ),
+        ),
+      ).then((_) {
+        if (mounted) {
+          setState(() => selectedTab = 0);
+        }
+      });
+      return;
+    }
+
     if (index == 4) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const ProfilePage(),
         ),
-      );
+      ).then((_) {
+        if (mounted) {
+          setState(() => selectedTab = 0);
+        }
+      });
       return;
     }
 
     if (index != 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${tabs[index]} page will be dev later'),
+          content: Text('${tabs[index]} page will be developed later'),
         ),
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

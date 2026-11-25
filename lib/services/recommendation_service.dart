@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../core/meal_distribution.dart';
 
 class RecommendationService {
   static String get baseUrl {
@@ -49,6 +50,33 @@ class RecommendationService {
     }
 
     throw Exception(data['message'] ?? 'Failed to get food recommendations');
+  }
+
+  Map<String, double> getMealTargets({
+    required String mealType,
+    required double dailyCalories,
+    required double dailyCarbs,
+    required double dailyProtein,
+    required double dailyFat,
+  }) {
+    return {
+      'calories': MealDistribution.getTarget(
+        dailyTarget: dailyCalories,
+        mealType: mealType,
+      ),
+      'carbs': MealDistribution.getTarget(
+        dailyTarget: dailyCarbs,
+        mealType: mealType,
+      ),
+      'protein': MealDistribution.getTarget(
+        dailyTarget: dailyProtein,
+        mealType: mealType,
+      ),
+      'fat': MealDistribution.getTarget(
+        dailyTarget: dailyFat,
+        mealType: mealType,
+      ),
+    };
   }
 
   // Get meal recommendation

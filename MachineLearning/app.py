@@ -37,6 +37,24 @@ food_features = food_df[
 
 food_knn = food_features.copy()
 
+print("\n===== FOOD FILTER CHECK =====")
+print("Total original foods:", len(food_df))
+print("Total filtered foods:", len(food_knn))
+
+print("\nMalaysian Availability:")
+print(food_knn["Malaysian Availability"].value_counts())
+
+print("\nSuitable for Diabetes:")
+print(food_knn["Suitable for Diabetes"].value_counts())
+
+print("\nGlycemic Index range:")
+print(food_knn["Glycemic Index"].min(),
+      "-",
+      food_knn["Glycemic Index"].max())
+
+print("\nFiltered food names:")
+print(food_knn["Food Name"].tolist())
+
 # Load Meal Dataset
 meal_df = pd.read_excel(
     DATA_DIR / "DiaNutra_Complete_Meals.xlsx",
@@ -171,6 +189,7 @@ def recommend_meal():
         result = json.loads(
             recommendations.to_json(orient="records")
         )
+        print("MEAL NAME CHECK:", result)
 
         return jsonify({
             "status": "success",

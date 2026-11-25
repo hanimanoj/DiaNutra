@@ -135,4 +135,121 @@ class FirestoreService {
       fat: (data['fat'] as num).toDouble(),
     );
   }
+
+  // Save food to daily tracking
+  Future<void> addFoodToDailyTracking({
+    required String foodName,
+    required String mealType,
+    required double calories,
+    required double carbs,
+    required double protein,
+    required double fat,
+    required double servingSize,
+  }) async {
+    final uid = currentUserId;
+
+    if (uid == null) {
+      throw Exception('User is not logged in.');
+    }
+
+    // Get today's date
+    final now = DateTime.now();
+    final dateId =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('daily_tracking')
+        .doc(dateId)
+        .collection('foods')
+        .add({
+      'foodName': foodName,
+      'mealType': mealType,
+      'calories': calories,
+      'carbs': carbs,
+      'protein': protein,
+      'fat': fat,
+      'servingSize': servingSize,
+      'addedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Get today's food tracking records
+  Future<List<Map<String, dynamic>>> getDailyFoodTracking() async {
+    final uid = currentUserId;
+
+    if (uid == null) {
+      throw Exception('User is not logged in.');
+    }
+
+    final now = DateTime.now();
+    final dateId =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('daily_tracking')
+        .doc(dateId)
+        .collection('foods')
+        .orderBy('addedAt', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) {
+      return {
+        'id': doc.id,
+        ...doc.data(),
+      };
+    }).toList();
+  }
+
+
+  // Remove food from daily tracking
+  Future<void> removeFoodFromDailyTracking({
+    required String foodId,
+  }) async {
+    final uid = currentUserId;
+
+    if (uid == null) {
+      throw Exception('User is not logged in.');
+    }
+
+    final now = DateTime.now();
+    final dateId =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('daily_tracking')
+        .doc(dateId)
+        .collection('foods')
+        .doc(foodId)
+        .delete();
+  }
+
+  // Calculate today's nutrition summary
+  Future<Map<String, double>> getDailyNutritionSummary() async {
+    final foods = await getDailyFoodTracking();
+
+    double totalCalories = 0;
+    double totalCarbs = 0;
+    double totalProtein = 0;
+    double totalFat = 0;
+
+    for (final food in foods) {
+      totalCalories += (food['calories'] as num).toDouble();
+      totalCarbs += (food['carbs'] as num).toDouble();
+      totalProtein += (food['protein'] as num).toDouble();
+      totalFat += (food['fat'] as num).toDouble();
+    }
+
+    return {
+      'calories': totalCalories,
+      'carbs': totalCarbs,
+      'protein': totalProtein,
+      'fat': totalFat,
+    };
+  }
 }
